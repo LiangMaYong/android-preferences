@@ -6,7 +6,10 @@ Welcome Star and Issues
 ## Use this
 1,set
 ```
-Preferences.getDefaultPreferences().setInt("IntKey", 1).setString("StringKey", "hi,android").setString("StringKey", "hi,preferences");
+Preferences.getDefaultPreferences()
+    .setInt("IntKey", 1)
+    .setString("StringKey", "hi,android")
+    .setString("StringKey", "hi,preferences");
 ```
 2,get
 ```
@@ -20,7 +23,7 @@ Preferences.getDefaultPreferences().getInt("IntKey",0);//1
 Preferences.getDefaultPreferences().registerOnPreferenceChangeListener(new Preferences.OnPreferenceChangeListener() {
     @Override
     public void onChange(Preferences preference, String key) {
-        Toast.makeText(MainActivity.this, "onChange:" + Preferences.getDefaultPreferences().getString(key), Toast.LENGTH_SHORT).show();
+        //codeing
     }
 });
 ```
