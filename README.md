@@ -3,6 +3,8 @@ this is android preferences
 
 Welcome Star and Issues
 
+download jar : [android-preferences-src.jar](https://raw.githubusercontent.com/LiangMaYong/android-preferences/master/jar/android-preferences-src.jar)
+
 ## Use this
 1,set
 ```
