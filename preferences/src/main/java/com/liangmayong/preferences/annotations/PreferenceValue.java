@@ -30,5 +30,5 @@ public @interface PreferenceValue {
      *
      * @return initValue
      */
-    String initValue();
+    String initValue() default "";
 }

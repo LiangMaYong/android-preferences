@@ -5,14 +5,12 @@ import android.app.Application;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 
-import com.liangmayong.preferences.annotations.PreferenceChange;
 import com.liangmayong.preferences.annotations.PreferenceValue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -43,69 +41,6 @@ public class Preferences {
             return;
         Class<?> cl = obj.getClass();
         initFields(cl.getDeclaredFields(), obj);
-        initMethods(cl.getDeclaredMethods(), obj);
-    }
-
-    /**
-     * initMethods
-     *
-     * @param allMethod allMethod
-     * @param object    object
-     */
-    private static void initMethods(Method[] allMethod, Object object) {
-        for (Method method : allMethod) {
-            if (isPreferenceChange(method)) {
-                PreferenceChange preferenceChange = method.getAnnotation(PreferenceChange.class);
-                String name = preferenceChange.name();
-                ProxyChange preferenceChangeListener = new ProxyChange(method, name, object);
-                Preferences preferences = null;
-                if ("defualt".equals(name)) {
-                    preferences = Preferences.getDefaultPreferences();
-                } else {
-                    preferences = Preferences.getPreferences(name);
-                }
-                preferences.registerOnPreferenceChangeListener(preferenceChangeListener);
-            }
-        }
-    }
-
-    /**
-     * ProxyLongClick
-     */
-    private static class ProxyChange implements OnPreferenceChangeListener {
-
-        private Method mMethod;
-        private Object mReceiver;
-        private String mName;
-
-        public ProxyChange(Method method, String name, Object receiver) {
-            mMethod = method;
-            mReceiver = receiver;
-            mName = name;
-        }
-
-        @Override
-        public void onChange(Preferences preference, String key) {
-            // TODO Auto-generated method stub
-            if (mReceiver == null) {
-                getPreferences(mName).unregisterOnPreferenceChangeListener(this);
-            }
-            try {
-                mMethod.setAccessible(true);
-                if (mMethod.getParameterTypes().length == 0) {
-                    mMethod.invoke(mReceiver);
-                } else {
-                    mMethod.invoke(mReceiver, key);
-                }
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            } catch (IllegalArgumentException e) {
-                e.printStackTrace();
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
-            }
-        }
-
     }
 
     /**
@@ -115,14 +50,14 @@ public class Preferences {
      * @param object   object
      */
     private static void initFields(Field[] allField, Object object) {
-        for (Field field : allField) {
+        for (final Field field : allField) {
             // preference
             if (isPreferenceValue(field)) {
                 PreferenceValue xkPreference = field.getAnnotation(PreferenceValue.class);
                 try {
                     String key = xkPreference.value();
                     String name = xkPreference.name();
-                    String initValue = xkPreference.name();
+                    String initValue = xkPreference.initValue();
                     Object value = null;
                     Preferences preferences = null;
                     if ("defualt".equals(name)) {
@@ -148,10 +83,7 @@ public class Preferences {
                     }
                     field.setAccessible(true);
                     field.set(object, value);
-                } catch (IllegalArgumentException e) {
-                    e.printStackTrace();
-                } catch (IllegalAccessException e) {
-                    e.printStackTrace();
+                } catch (Exception e) {
                 }
             }
         }
@@ -165,16 +97,6 @@ public class Preferences {
      */
     private static boolean isPreferenceValue(Field field) {
         return field.isAnnotationPresent(PreferenceValue.class);
-    }
-
-    /**
-     * isPreferenceChange
-     *
-     * @param method method
-     * @return true or false
-     */
-    private static boolean isPreferenceChange(Method method) {
-        return method.isAnnotationPresent(PreferenceValue.class);
     }
 
     /**
@@ -306,7 +228,9 @@ public class Preferences {
                     @Override
                     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
                         for (int i = 0; i < preferenceChangeListeners.size(); i++) {
-                            preferenceChangeListeners.get(i).onChange(Preferences.this, key);
+                            if (preferenceChangeListeners.get(i) != null) {
+                                preferenceChangeListeners.get(i).onChange(Preferences.this, key);
+                            }
                         }
                     }
                 });
@@ -381,10 +305,12 @@ public class Preferences {
      * @param defValue defValue
      * @return boolean
      */
+    @SuppressLint("DefaultLocale")
     public boolean getBoolean(String key, boolean defValue) {
         boolean retu = false;
         try {
-            retu = "Yes".equals(getString(key, defValue ? "Yes" : "No"));
+            retu = "Yes".equals(getString(key, defValue ? "Yes" : "No"))
+                    || "TRUE".toUpperCase().equals(getString(key, defValue ? "Yes" : "No"));
         } catch (Exception e) {
         }
         return retu;
