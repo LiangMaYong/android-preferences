@@ -1,8 +1,18 @@
 package com.liangmayong.preferences;
 
+import android.annotation.SuppressLint;
+import android.app.Application;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+
+import com.liangmayong.preferences.annotations.PreferenceChange;
+import com.liangmayong.preferences.annotations.PreferenceValue;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -15,11 +25,6 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import android.annotation.SuppressLint;
-import android.app.Application;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
-
 /**
  * Preferences
  *
@@ -27,6 +32,150 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
  * @version 1.0
  */
 public class Preferences {
+
+    /**
+     * bind
+     *
+     * @param obj obj
+     */
+    public static void bind(Object obj) {
+        if (null == obj)
+            return;
+        Class<?> cl = obj.getClass();
+        initFields(cl.getDeclaredFields(), obj);
+        initMethods(cl.getDeclaredMethods(), obj);
+    }
+
+    /**
+     * initMethods
+     *
+     * @param allMethod allMethod
+     * @param object    object
+     */
+    private static void initMethods(Method[] allMethod, Object object) {
+        for (Method method : allMethod) {
+            if (isPreferenceChange(method)) {
+                PreferenceChange preferenceChange = method.getAnnotation(PreferenceChange.class);
+                String name = preferenceChange.name();
+                ProxyChange preferenceChangeListener = new ProxyChange(method, name, object);
+                Preferences preferences = null;
+                if ("defualt".equals(name)) {
+                    preferences = Preferences.getDefaultPreferences();
+                } else {
+                    preferences = Preferences.getPreferences(name);
+                }
+                preferences.registerOnPreferenceChangeListener(preferenceChangeListener);
+            }
+        }
+    }
+
+    /**
+     * ProxyLongClick
+     */
+    private static class ProxyChange implements OnPreferenceChangeListener {
+
+        private Method mMethod;
+        private Object mReceiver;
+        private String mName;
+
+        public ProxyChange(Method method, String name, Object receiver) {
+            mMethod = method;
+            mReceiver = receiver;
+            mName = name;
+        }
+
+        @Override
+        public void onChange(Preferences preference, String key) {
+            // TODO Auto-generated method stub
+            if (mReceiver == null) {
+                getPreferences(mName).unregisterOnPreferenceChangeListener(this);
+            }
+            try {
+                mMethod.setAccessible(true);
+                if (mMethod.getParameterTypes().length == 0) {
+                    mMethod.invoke(mReceiver);
+                } else {
+                    mMethod.invoke(mReceiver, key);
+                }
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    /**
+     * initFields
+     *
+     * @param allField allField
+     * @param object   object
+     */
+    private static void initFields(Field[] allField, Object object) {
+        for (Field field : allField) {
+            // preference
+            if (isPreferenceValue(field)) {
+                PreferenceValue xkPreference = field.getAnnotation(PreferenceValue.class);
+                try {
+                    String key = xkPreference.value();
+                    String name = xkPreference.name();
+                    String initValue = xkPreference.name();
+                    Object value = null;
+                    Preferences preferences = null;
+                    if ("defualt".equals(name)) {
+                        preferences = Preferences.getDefaultPreferences();
+                    } else {
+                        preferences = Preferences.getPreferences(name);
+                    }
+                    if (!preferences.contains(key)) {
+                        preferences.setString(key, initValue);
+                    }
+                    if (preferences != null) {
+                        if (field.getType() == String.class) {
+                            value = preferences.getString(key, "");
+                        } else if (field.getType() == int.class || field.getType() == Integer.class) {
+                            value = preferences.getInt(key, 0);
+                        } else if (field.getType() == boolean.class || field.getType() == Boolean.class) {
+                            value = preferences.getBoolean(key, false);
+                        } else if (field.getType() == long.class || field.getType() == Long.class) {
+                            value = preferences.getLong(key, 0);
+                        } else if (field.getType() == float.class || field.getType() == Float.class) {
+                            value = preferences.getFloat(key, 0);
+                        }
+                    }
+                    field.setAccessible(true);
+                    field.set(object, value);
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    /**
+     * isPreferenceValue
+     *
+     * @param field field
+     * @return true or false
+     */
+    private static boolean isPreferenceValue(Field field) {
+        return field.isAnnotationPresent(PreferenceValue.class);
+    }
+
+    /**
+     * isPreferenceChange
+     *
+     * @param method method
+     * @return true or false
+     */
+    private static boolean isPreferenceChange(Method method) {
+        return method.isAnnotationPresent(PreferenceValue.class);
+    }
 
     /**
      * OnPreferenceChangeListener
@@ -186,6 +335,16 @@ public class Preferences {
         } catch (Exception e) {
         }
         return mString;
+    }
+
+    /**
+     * contains
+     *
+     * @param key key
+     * @return contains
+     */
+    public boolean contains(String key) {
+        return getSharedPreferences().contains(key);
     }
 
     /**
