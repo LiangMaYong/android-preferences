@@ -253,12 +253,15 @@ public class Preferences {
             } catch (Exception e) {
             }
         }
-        String mString = "";
-        try {
-            mString = new String(Des.decrypt(getSharedPreferences().getString(key, defValue), key));
-        } catch (Exception e) {
+        if (contains(key)) {
+            String mString = "";
+            try {
+                mString = new String(Des.decrypt(getSharedPreferences().getString(key, defValue), key));
+            } catch (Exception e) {
+            }
+            return mString;
         }
-        return mString;
+        return defValue;
     }
 
     /**
@@ -289,7 +292,7 @@ public class Preferences {
      * @return int
      */
     public int getInt(String key, int defValue) {
-        int mInt = 0;
+        int mInt = defValue;
         try {
             String string = getString(key, defValue + "");
             mInt = Integer.parseInt(string);
@@ -307,7 +310,7 @@ public class Preferences {
      */
     @SuppressLint("DefaultLocale")
     public boolean getBoolean(String key, boolean defValue) {
-        boolean retu = false;
+        boolean retu = defValue;
         try {
             retu = "Yes".equals(getString(key, defValue ? "Yes" : "No"))
                     || "TRUE".toUpperCase().equals(getString(key, defValue ? "Yes" : "No"));
@@ -324,7 +327,7 @@ public class Preferences {
      * @return float
      */
     public float getFloat(String key, float defValue) {
-        float retu = 0;
+        float retu = defValue;
         try {
             String string = getString(key, defValue + "");
             retu = Float.parseFloat(string);
@@ -341,7 +344,7 @@ public class Preferences {
      * @return long
      */
     public long getLong(String key, long defValue) {
-        long retu = 0;
+        long retu = defValue;
         try {
             String string = getString(key, defValue + "");
             retu = Long.parseLong(string);
