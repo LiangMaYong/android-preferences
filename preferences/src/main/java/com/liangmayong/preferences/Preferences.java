@@ -1,9 +1,16 @@
 package com.liangmayong.preferences;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.app.ActivityManager;
 import android.app.Application;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.os.Build;
+import android.os.Process;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,6 +21,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -72,6 +80,7 @@ public class Preferences {
     private static final Map<String, Preferences> perferencesMap = new HashMap<String, Preferences>();
     // DEFAULT_PREFERENCES_NAME
     private static final String DEFAULT_PREFERENCES_NAME = "default";
+    private static final String ANDROID_PREFERENCES_REFRESH_ACTION = ".android_preferences_refresh_action";
 
     /**
      * getDefault
@@ -102,8 +111,33 @@ public class Preferences {
         }
     }
 
+    /**
+     * getCurrentProcessName
+     *
+     * @param context
+     * @return process name
+     */
+    @TargetApi(Build.VERSION_CODES.CUPCAKE)
+    private static String getCurrentProcessName(Context context) {
+        int pid = Process.myPid();
+        ActivityManager mActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        @SuppressWarnings("rawtypes")
+        Iterator i$ = mActivityManager.getRunningAppProcesses().iterator();
+        ActivityManager.RunningAppProcessInfo appProcess;
+        do {
+            if (!i$.hasNext()) {
+                return null;
+            }
+            appProcess = (ActivityManager.RunningAppProcessInfo) i$.next();
+        } while (appProcess.pid != pid);
+        return appProcess.processName;
+    }
+
     private Preferences(String sharedPreferencesName) {
         this.sharedPreferencesName = "preferences_" + sharedPreferencesName;
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(getApplication().getPackageName() + ANDROID_PREFERENCES_REFRESH_ACTION + "." + this.sharedPreferencesName);
+        getApplication().registerReceiver(new PreferencesReceiver(), filter);
     }
 
     // sharedPreferencesName
@@ -111,10 +145,19 @@ public class Preferences {
 
     // preferencesValueMap
     private Map<String, String> preferencesValueMap = new HashMap<String, String>();
-    // sharedPreferences
-    private SharedPreferences sharedPreferences;
     // preferenceChangeListeners
     private List<OnPreferenceChangeListener> preferenceChangeListeners = new ArrayList<OnPreferenceChangeListener>();
+
+    /**
+     * change
+     *
+     * @param key key
+     */
+    private void onChange(String key) {
+        for (int i = 0; i < preferenceChangeListeners.size(); i++) {
+            preferenceChangeListeners.get(i).onChange(this, key);
+        }
+    }
 
     /**
      * registerOnPreferenceChangeListener
@@ -146,27 +189,19 @@ public class Preferences {
     }
 
     /**
-     * getSharedPreferences
+     * getSharePreferences
      *
-     * @return sharedPreferences
+     * @return preferences
      */
     private SharedPreferences getSharedPreferences() {
-        if (sharedPreferences == null) {
-            synchronized (this) {
-                sharedPreferences = getApplication().getSharedPreferences(sharedPreferencesName, 0);
-                sharedPreferences.registerOnSharedPreferenceChangeListener(new OnSharedPreferenceChangeListener() {
-                    @Override
-                    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-                        for (int i = 0; i < preferenceChangeListeners.size(); i++) {
-                            if (preferenceChangeListeners.get(i) != null) {
-                                preferenceChangeListeners.get(i).onChange(Preferences.this, key);
-                            }
-                        }
-                    }
-                });
-            }
+        Context context = null;
+        try {
+            context = getApplication().createPackageContext(getApplication().getPackageName(),
+                    Context.CONTEXT_IGNORE_SECURITY);
+        } catch (Exception e) {
+            context = getApplication();
         }
-        return sharedPreferences;
+        return context.getSharedPreferences(sharedPreferencesName, 0 | 2 | 4);
     }
 
     /**
@@ -326,6 +361,22 @@ public class Preferences {
      * @return preference
      */
     public Preferences setString(String key, String value) {
+        setString(key, value, true);
+        return this;
+    }
+
+    /**
+     * setString
+     *
+     * @param key     key
+     * @param value   value
+     * @param process process
+     * @return v
+     */
+    private Preferences setString(String key, String value, boolean process) {
+        if (!preferencesValueMap.containsKey(key) || !preferencesValueMap.get(key).equals(value)) {
+            onChange(key);
+        }
         preferencesValueMap.put(key, value);
         try {
             SharedPreferences.Editor editor = getSharedPreferences().edit();
@@ -333,7 +384,31 @@ public class Preferences {
             editor.commit();
         } catch (Exception e) {
         }
+        if (process) {
+            Intent intent = new Intent(getApplication().getPackageName() + ANDROID_PREFERENCES_REFRESH_ACTION + "." + this.sharedPreferencesName);
+            intent.putExtra("process", getCurrentProcessName(getApplication()));
+            intent.putExtra("key", key);
+            intent.putExtra("value", value);
+            getApplication().sendBroadcast(intent);
+        }
         return this;
+    }
+
+    /**
+     * PreferencesReceiver
+     */
+    private class PreferencesReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String process = intent.getStringExtra("process");
+            if (process != null && !process.equals(getCurrentProcessName(context))) {
+                String key = intent.getStringExtra("key");
+                if (key != null && !"".equals(key)) {
+                    String value = intent.getStringExtra("value");
+                    setString(key, value, false);
+                }
+            }
+        }
     }
 
     /**

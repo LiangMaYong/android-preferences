@@ -7,7 +7,7 @@ import android.widget.Toast;
 
 import com.liangmayong.preferences.Preferences;
 
-public class MainActivity extends AppCompatActivity {
+public class Main2Activity extends AppCompatActivity {
 
 
     @Override
@@ -15,8 +15,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toast.makeText(this, Preferences.getDefaultPreferences().getString("key"), Toast.LENGTH_SHORT).show();
-        Preferences.getDefaultPreferences().setString("key", "Main2Activity");
-        startActivity(new Intent(this, Main2Activity.class));
+        Preferences.getDefaultPreferences().setString("key", "MainActivity");
     }
 
     @Override
