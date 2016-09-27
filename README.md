@@ -1,11 +1,15 @@
 ﻿# android-preferences
-this is android preferences
+this is android preferences library
 
-Welcome Star and Issues
+[![LatestVersion](https://img.shields.io/badge/LatestVersion-1.0.0-brightgreen.svg?style=plastic) ](https://github.com/LiangMaYong/android-preferences/releases)
 
 download jar : [android-preferences-src.jar](https://raw.githubusercontent.com/LiangMaYong/android-preferences/master/jar/android-preferences-src.jar)
 
-## Use this
+## Gradle
+```
+compile 'com.liangmayong.android:preferences:$LatestVersion'
+```
+## Get start
 1,set
 ```
 Preferences.getDefaultPreferences()
