@@ -387,6 +387,7 @@ public class Preferences {
         if (process) {
             Intent intent = new Intent(getApplication().getPackageName() + ANDROID_PREFERENCES_REFRESH_ACTION + "." + this.sharedPreferencesName);
             intent.putExtra("process", getCurrentProcessName(getApplication()) + "@" + hashCode());
+            intent.putExtra("name", sharedPreferencesName);
             intent.putExtra("key", key);
             intent.putExtra("value", value);
             getApplication().sendBroadcast(intent);
@@ -401,7 +402,8 @@ public class Preferences {
         @Override
         public void onReceive(Context context, Intent intent) {
             String process = intent.getStringExtra("process");
-            if (process != null && !process.equals(getCurrentProcessName(context) + "@" + hashCode())) {
+            String name = intent.getStringExtra("name");
+            if (name != null && name.equals(Preferences.this.sharedPreferencesName) && process != null && !process.equals(getCurrentProcessName(context) + "@" + Preferences.this.hashCode())) {
                 String key = intent.getStringExtra("key");
                 if (key != null && !"".equals(key)) {
                     String value = intent.getStringExtra("value");
